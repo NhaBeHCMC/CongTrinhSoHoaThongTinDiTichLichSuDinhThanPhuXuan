@@ -3,12 +3,13 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Công trình số hóa thông tin di tích lịch sử Đình Thần Phú Xuân</title>
+  <title>Công trình số hóa thông tin di tích kiến trúc nghệ thuật Đình Phú Xuân</title>
 
   <!-- Responsive mobile -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1,user-scalable=no">
 
   <!-- Leaflet -->
+  <link rel="preload" as="image" href="optimized/map.jpg" fetchpriority="high">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
   <style>
@@ -472,6 +473,145 @@
       touch-action: pan-y;
       overscroll-behavior: contain;
     }
+
+    #detailModal {
+      padding: 18px;
+      box-sizing: border-box;
+      background: rgba(12, 8, 5, 0.72);
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-content {
+      width: min(92vw, 760px);
+      max-height: min(86vh, 760px);
+      padding: 0;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fffaf2;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(139, 0, 0, 0.14);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1fr 42px;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 16px 12px 20px;
+      background: linear-gradient(180deg, #fffaf2 0%, #fff3df 100%);
+      border-bottom: 1px solid rgba(139, 0, 0, 0.12);
+    }
+
+    #modalTitle {
+      margin: 0;
+      color: #8b0000;
+      font-family: sans-serif;
+      font-size: clamp(20px, 4vw, 28px);
+      line-height: 1.2;
+    }
+
+    .close-btn {
+      position: static;
+      width: 42px;
+      height: 42px;
+      border: 0;
+      border-radius: 999px;
+      background: #8b0000;
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(139, 0, 0, 0.25);
+    }
+
+    .close-btn:hover {
+      background: #650000;
+    }
+
+    .modal-body {
+      flex: 1;
+      min-height: 0;
+      padding: 0 20px 22px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      margin: 0 -20px 18px;
+      padding: 12px 20px;
+      background: #fff3df;
+      border-bottom: 1px solid rgba(139, 0, 0, 0.1);
+      box-shadow: 0 6px 16px rgba(88, 45, 18, 0.08);
+    }
+
+    .tabs button {
+      min-height: 40px;
+      border-radius: 999px;
+      background: #f2e6d4;
+      color: #5b321a;
+      font-weight: 700;
+    }
+
+    .tabs button.active {
+      background: #8b0000;
+      color: #fff;
+    }
+
+    .tab-content {
+      color: #2f251f;
+      font-family: sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .tab-content img {
+      display: block;
+      width: 100%;
+      max-height: 68vh;
+      object-fit: contain;
+      margin: 12px 0;
+      border-radius: 12px;
+      background: #f5ead8;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+      cursor: zoom-in;
+    }
+
+    @media (max-width: 767px) {
+      #detailModal {
+        padding: 10px;
+        align-items: flex-end;
+      }
+
+      .modal-content {
+        width: 100%;
+        max-height: 88dvh;
+        border-radius: 14px 14px 0 0;
+      }
+
+      .modal-header {
+        padding: 14px 12px 10px 16px;
+      }
+
+      .modal-body {
+        padding: 0 14px 18px;
+      }
+
+      .tabs {
+        margin: 0 -14px 14px;
+        padding: 10px 14px;
+      }
+    }
   </style>
 </head>
 
@@ -479,7 +619,7 @@
   <div class="header">
     <!-- Logo -->
     <div class="logo">
-      <img src="logo.png" alt="logo">
+      <img src="optimized/logo.png" alt="logo" width="600" height="149" decoding="async" fetchpriority="high">
     </div>
     <!-- Tiêu đề -->
     <div class="title">
@@ -499,16 +639,7 @@
       </div>
     </div>
   </div>
-  <div id="map">
-    <div id="topMenuModal" style="display:none;">
-      <div class="menu-modal-content">
-        <span class="close-menu-btn" onclick="closeTopMenu()">×</span>
-        <h2 id="menuModalTitle" style="margin-top: 0;">Tiêu đề</h2>
-        <div id="menuModalBody">
-        </div>
-      </div>
-    </div>
-  </div>
+  <div id="map"></div>
 
   <div id="topMenuModal" style="display:none;">
     <div class="menu-modal-content">
@@ -518,37 +649,34 @@
       </div>
     </div>
   </div>
-  </div>
   <div class="custom-footer">
     &copy; 2026 Công trình số hóa thông tin di tích lịch sử Đình Thần Phú Xuân.<br>Thiết kế và phát triển bởi Khoa Công
     nghệ Thông tin <br>Trường Đại học Mở TP.HCM
   </div>
+  <div id="detailModal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle"></h2>
+        <button class="close-btn" type="button" onclick="closeModal()" aria-label="Đóng">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="tabs">
+          <button id="btn-info" type="button" onclick="showTab('info')">Thông tin</button>
+          <button id="btn-images" type="button" onclick="showTab('images')">Hình ảnh</button>
+        </div>
+
+        <div id="tab-info" class="tab-content"></div>
+        <div id="tab-images" class="tab-content" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
   <script src="script.js"></script>
 
 </body>
-<div id="detailModal" style="display:none;">
-  <div class="modal-content">
-
-    <!-- Nút đóng -->
-    <span class="close-btn" onclick="closeModal()">×</span>
-
-    <!-- Tiêu đề -->
-    <h2 id="modalTitle"></h2>
-
-    <!-- Tab -->
-    <div class="tabs">
-      <button id="btn-info" onclick="showTab('info')">Thông tin</button>
-      <button id="btn-images" onclick="showTab('images')">Hình ảnh</button>
-    </div>
-
-    <!-- Nội dung -->
-    <div id="tab-info" class="tab-content"></div>
-    <div id="tab-images" class="tab-content" style="display:none;"></div>
-
-  </div>
-</div>
 
 </html>
