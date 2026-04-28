@@ -12,8 +12,16 @@ function optimizedImageSrc(src, type) {
 }
 
 function fallbackToOriginal(img, originalSrc) {
-  img.onerror = null;
-  img.src = originalSrc;
+  img.onerror = () => {
+    img.onerror = null;
+    img.src = optimizedImageSrc(originalSrc, "viewer");
+  };
+  img.src = optimizedImageSrc(originalSrc, "large");
+}
+
+function preloadImage(src) {
+  const img = new Image();
+  img.src = src;
 }
 
 // ===== TẠO MAP =====
@@ -165,16 +173,23 @@ function openImage(src, gallery = [src]) {
     currentIndex = (index + gallery.length) % gallery.length;
     const currentSrc = gallery[currentIndex];
     image.onerror = () => {
-      image.onerror = null;
+      image.onerror = () => fallbackToOriginal(image, currentSrc);
       image.src = optimizedImageSrc(currentSrc, "large");
     };
-    image.src = currentSrc;
+    image.src = optimizedImageSrc(currentSrc, "viewer");
     count.innerText = `${currentIndex + 1} / ${gallery.length}`;
 
     const hasManyImages = gallery.length > 1;
     prevBtn.style.display = hasManyImages ? "flex" : "none";
     nextBtn.style.display = hasManyImages ? "flex" : "none";
     count.style.display = hasManyImages ? "block" : "none";
+
+    if (hasManyImages) {
+      const previousSrc = gallery[(currentIndex - 1 + gallery.length) % gallery.length];
+      const nextSrc = gallery[(currentIndex + 1) % gallery.length];
+      preloadImage(optimizedImageSrc(previousSrc, "viewer"));
+      preloadImage(optimizedImageSrc(nextSrc, "viewer"));
+    }
   }
 
   function showPreviousImage() {
