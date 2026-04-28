@@ -39,10 +39,12 @@ L.control.zoom({
 
 // ===== HÀM THÊM MARKER TỪ PX =====
 
-//Chức năng phóng to ảnh
-function openImage(src) {
+//Chức năng phóng to ảnh, có hỗ trợ chuyển ảnh trước/sau trong cùng gallery
+function openImage(src, gallery = [src]) {
   const overlay = document.createElement("div");
-  const largeSrc = optimizedImageSrc(src, "large");
+  let currentIndex = Math.max(0, gallery.indexOf(src));
+  let touchStartX = 0;
+  let touchStartY = 0;
 
   overlay.style = `
     position: fixed;
@@ -58,43 +60,191 @@ function openImage(src) {
   `;
 
   overlay.innerHTML = `
-    <div style="position:relative;">
-      
-      <!-- Nút đóng -->
-      <span style="
+    <div class="image-viewer" style="
+      position:relative;
+      width:100%;
+      height:100%;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding:54px 72px;
+      box-sizing:border-box;
+    ">
+      <button type="button" class="viewer-close" aria-label="Đóng ảnh" style="
         position:absolute;
-        top:-10px;
-        right:-10px;
+        top:16px;
+        right:18px;
         background:white;
-        width:30px;
-        height:30px;
+        color:#8b0000;
+        border:0;
+        width:42px;
+        height:42px;
         border-radius:50%;
         display:flex;
         justify-content:center;
         align-items:center;
         cursor:pointer;
+        font-size:30px;
         font-weight:bold;
-      ">×</span>
+        line-height:1;
+        box-shadow:0 6px 18px rgba(0,0,0,.3);
+      ">×</button>
 
-      <!-- Ảnh -->
-      <img src="${largeSrc}" 
-        onerror="fallbackToOriginal(this, '${src}')"
-        style="
-        max-width:90vw;
-        max-height:90vh;
-        border-radius:10px;
+      <button type="button" class="viewer-prev" aria-label="Ảnh trước" style="
+        position:absolute;
+        left:18px;
+        top:50%;
+        transform:translateY(-50%);
+        background:rgba(255,255,255,.92);
+        color:#8b0000;
+        border:0;
+        width:48px;
+        height:48px;
+        border-radius:50%;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        cursor:pointer;
+        font-size:34px;
+        line-height:1;
+        box-shadow:0 6px 18px rgba(0,0,0,.3);
+      ">‹</button>
+
+      <img class="viewer-image" alt="" style="
+        max-width:100%;
+        max-height:100%;
+        border-radius:12px;
+        object-fit:contain;
+        box-shadow:0 12px 40px rgba(0,0,0,.45);
+        user-select:none;
+        -webkit-user-drag:none;
       ">
+
+      <button type="button" class="viewer-next" aria-label="Ảnh sau" style="
+        position:absolute;
+        right:18px;
+        top:50%;
+        transform:translateY(-50%);
+        background:rgba(255,255,255,.92);
+        color:#8b0000;
+        border:0;
+        width:48px;
+        height:48px;
+        border-radius:50%;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        cursor:pointer;
+        font-size:34px;
+        line-height:1;
+        box-shadow:0 6px 18px rgba(0,0,0,.3);
+      ">›</button>
+
+      <div class="viewer-count" style="
+        position:absolute;
+        left:50%;
+        bottom:18px;
+        transform:translateX(-50%);
+        background:rgba(0,0,0,.62);
+        color:white;
+        padding:6px 12px;
+        border-radius:999px;
+        font-family:sans-serif;
+        font-size:14px;
+      "></div>
     </div>
   `;
 
+  const image = overlay.querySelector(".viewer-image");
+  const prevBtn = overlay.querySelector(".viewer-prev");
+  const nextBtn = overlay.querySelector(".viewer-next");
+  const count = overlay.querySelector(".viewer-count");
+  const closeBtn = overlay.querySelector(".viewer-close");
+
+  function showViewerImage(index) {
+    currentIndex = (index + gallery.length) % gallery.length;
+    const currentSrc = gallery[currentIndex];
+    image.onerror = () => {
+      image.onerror = null;
+      image.src = optimizedImageSrc(currentSrc, "large");
+    };
+    image.src = currentSrc;
+    count.innerText = `${currentIndex + 1} / ${gallery.length}`;
+
+    const hasManyImages = gallery.length > 1;
+    prevBtn.style.display = hasManyImages ? "flex" : "none";
+    nextBtn.style.display = hasManyImages ? "flex" : "none";
+    count.style.display = hasManyImages ? "block" : "none";
+  }
+
+  function showPreviousImage() {
+    showViewerImage(currentIndex - 1);
+  }
+
+  function showNextImage() {
+    showViewerImage(currentIndex + 1);
+  }
+
+  function closeViewer() {
+    document.removeEventListener("keydown", handleViewerKeydown);
+    overlay.remove();
+  }
+
+  function handleViewerKeydown(e) {
+    if (e.key === "Escape") {
+      closeViewer();
+    } else if (e.key === "ArrowLeft" && gallery.length > 1) {
+      showPreviousImage();
+    } else if (e.key === "ArrowRight" && gallery.length > 1) {
+      showNextImage();
+    }
+  }
+
   // Click nền để đóng
-  overlay.onclick = () => overlay.remove();
+  overlay.onclick = (e) => {
+    if (e.target === overlay || e.target.classList.contains("image-viewer")) {
+      closeViewer();
+    }
+  };
 
   // Ngăn click vào ảnh bị đóng
-  overlay.querySelector("img").onclick = (e) => e.stopPropagation();
+  image.onclick = (e) => e.stopPropagation();
 
   // Click nút X để đóng
-  overlay.querySelector("span").onclick = () => overlay.remove();
+  closeBtn.onclick = closeViewer;
+  prevBtn.onclick = (e) => {
+    e.stopPropagation();
+    showPreviousImage();
+  };
+  nextBtn.onclick = (e) => {
+    e.stopPropagation();
+    showNextImage();
+  };
+
+  overlay.addEventListener("touchstart", (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  overlay.addEventListener("touchend", (e) => {
+    if (gallery.length <= 1) {
+      return;
+    }
+
+    const diffX = e.changedTouches[0].screenX - touchStartX;
+    const diffY = e.changedTouches[0].screenY - touchStartY;
+
+    if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY) * 1.4) {
+      if (diffX > 0) {
+        showPreviousImage();
+      } else {
+        showNextImage();
+      }
+    }
+  }, { passive: true });
+
+  showViewerImage(currentIndex);
+  document.addEventListener("keydown", handleViewerKeydown);
 
   document.body.appendChild(overlay);
 }
@@ -115,12 +265,12 @@ function addMarkerPx(x, y, title, desc, images) {
         grid-template-columns:1fr 1fr;
         gap:6px;
       ">
-        ${images.map(img => `
+        ${images.map((img, index) => `
           <img src="${optimizedImageSrc(img, "thumbs")}" 
                loading="lazy"
                decoding="async"
                onerror="fallbackToOriginal(this, '${img}')"
-               onclick="openImage('${img}')"
+               onclick='openImage("${img}", ${JSON.stringify(images)}, ${index})'
                style="
                   width:100%;
                   height:100px;
@@ -212,12 +362,12 @@ function openDetail(title, desc, images = []) {
     imageTabBtn.style.display = "block";
 
     imageTab.innerHTML =
-      images.map(img => `
+      images.map((img, index) => `
         <img src="${optimizedImageSrc(img, "thumbs")}"
              loading="lazy"
              decoding="async"
              onerror="fallbackToOriginal(this, '${img}')"
-             onclick="openImage('${img}')"
+             onclick='openImage("${img}", ${JSON.stringify(images)}, ${index})'
              style="
                 width:100%;
                 margin:8px 0;
@@ -374,12 +524,12 @@ function openTopMenu(type) {
     // Tạo lưới ảnh và tái sử dụng hàm openImage() cũ của bạn để click phóng to
     const htmlAnh = `
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 15px;">
-        ${hinhAnhHoatDong.map(img => `
+        ${hinhAnhHoatDong.map((img, index) => `
           <img src="${optimizedImageSrc(img, "thumbs")}" 
                loading="lazy" 
                decoding="async"
                onerror="fallbackToOriginal(this, '${img}')"
-               onclick="openImage('${img}')" 
+               onclick="openImage(hinhAnhHoatDong[${index}], hinhAnhHoatDong)" 
                title="Click để phóng to" 
                style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
         `).join("")}
@@ -393,12 +543,12 @@ function openTopMenu(type) {
     // Tái sử dụng giao diện lưới ảnh giống hệt phần Hoạt động
     const htmlAnh = `
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 15px;">
-        ${hinhAnhDinhThan.map(img => `
+        ${hinhAnhDinhThan.map((img, index) => `
           <img src="${optimizedImageSrc(img, "thumbs")}" 
                loading="lazy" 
                decoding="async"
                onerror="fallbackToOriginal(this, '${img}')"
-               onclick="openImage('${img}')" 
+               onclick="openImage(hinhAnhDinhThan[${index}], hinhAnhDinhThan)" 
                title="Click để phóng to" 
                style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
         `).join("")}
