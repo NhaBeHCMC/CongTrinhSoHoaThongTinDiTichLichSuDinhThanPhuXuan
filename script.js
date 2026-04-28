@@ -1,6 +1,20 @@
 // ===== CẤU HÌNH =====
 const IMG_WIDTH = 2000;
 const IMG_HEIGHT = 1600;
+const OPTIMIZED_ROOT = "optimized";
+
+function optimizedImageSrc(src, type) {
+  if (src.startsWith(`${OPTIMIZED_ROOT}/`)) {
+    return src;
+  }
+
+  return `${OPTIMIZED_ROOT}/${type}/${src.replace(/\.[^.]+$/, ".jpg")}`;
+}
+
+function fallbackToOriginal(img, originalSrc) {
+  img.onerror = null;
+  img.src = originalSrc;
+}
 
 // ===== TẠO MAP =====
 var map = L.map('map', {
@@ -13,8 +27,10 @@ var map = L.map('map', {
 // Hệ tọa độ 0 → 1 (QUAN TRỌNG)
 var bounds = [[0, 0], [1600, 2000]];
 
-// Ảnh nền
-L.imageOverlay('map.png', bounds).addTo(map);
+// Ảnh nền đã nén nhẹ để tải nhanh hơn khi vào trang
+L.imageOverlay('optimized/map.jpg', bounds, {
+  errorOverlayUrl: 'map.png'
+}).addTo(map);
 map.fitBounds(bounds);
 map.setMaxBounds(bounds);
 L.control.zoom({
@@ -26,6 +42,7 @@ L.control.zoom({
 //Chức năng phóng to ảnh
 function openImage(src) {
   const overlay = document.createElement("div");
+  const largeSrc = optimizedImageSrc(src, "large");
 
   overlay.style = `
     position: fixed;
@@ -60,7 +77,9 @@ function openImage(src) {
       ">×</span>
 
       <!-- Ảnh -->
-      <img src="${src}" style="
+      <img src="${largeSrc}" 
+        onerror="fallbackToOriginal(this, '${src}')"
+        style="
         max-width:90vw;
         max-height:90vh;
         border-radius:10px;
@@ -97,7 +116,10 @@ function addMarkerPx(x, y, title, desc, images) {
         gap:6px;
       ">
         ${images.map(img => `
-          <img src="${img}" 
+          <img src="${optimizedImageSrc(img, "thumbs")}" 
+               loading="lazy"
+               decoding="async"
+               onerror="fallbackToOriginal(this, '${img}')"
                onclick="openImage('${img}')"
                style="
                   width:100%;
@@ -168,7 +190,9 @@ function openDetail(title, desc, images = []) {
   map.touchZoom.disable();
   map.scrollWheelZoom.disable();
 
-  document.getElementById("detailModal").style.display = "flex";
+  const detailModal = document.getElementById("detailModal");
+  detailModal.style.display = "flex";
+  detailModal.querySelector(".modal-body").scrollTop = 0;
 
   document.getElementById("modalTitle").innerText = title;
 
@@ -189,7 +213,10 @@ function openDetail(title, desc, images = []) {
 
     imageTab.innerHTML =
       images.map(img => `
-        <img src="${img}"
+        <img src="${optimizedImageSrc(img, "thumbs")}"
+             loading="lazy"
+             decoding="async"
+             onerror="fallbackToOriginal(this, '${img}')"
              onclick="openImage('${img}')"
              style="
                 width:100%;
@@ -348,8 +375,10 @@ function openTopMenu(type) {
     const htmlAnh = `
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 15px;">
         ${hinhAnhHoatDong.map(img => `
-          <img src="${img}" 
+          <img src="${optimizedImageSrc(img, "thumbs")}" 
                loading="lazy" 
+               decoding="async"
+               onerror="fallbackToOriginal(this, '${img}')"
                onclick="openImage('${img}')" 
                title="Click để phóng to" 
                style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
@@ -365,8 +394,10 @@ function openTopMenu(type) {
     const htmlAnh = `
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 15px;">
         ${hinhAnhDinhThan.map(img => `
-          <img src="${img}" 
+          <img src="${optimizedImageSrc(img, "thumbs")}" 
                loading="lazy" 
+               decoding="async"
+               onerror="fallbackToOriginal(this, '${img}')"
                onclick="openImage('${img}')" 
                title="Click để phóng to" 
                style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
@@ -418,6 +449,24 @@ function closeTopMenu() {
 document.getElementById("topMenuModal").addEventListener("click", function (e) {
   if (e.target === this) {
     closeTopMenu();
+  }
+});
+
+document.getElementById("detailModal").addEventListener("click", function (e) {
+  if (e.target === this) {
+    closeModal();
+  }
+});
+
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") {
+    if (document.getElementById("detailModal").style.display === "flex") {
+      closeModal();
+    }
+
+    if (document.getElementById("topMenuModal").style.display === "flex") {
+      closeTopMenu();
+    }
   }
 });
 
